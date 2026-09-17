@@ -1,3 +1,7 @@
 node_modules/
 *.tgz
 .artifacts/
+dist/
+release/
+.pi/
+.DS_Store

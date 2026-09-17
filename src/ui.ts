@@ -6,7 +6,7 @@ import {
   type Component,
   type KeybindingsManager,
 } from "@earendil-works/pi-tui";
-import type { Snapshot } from "./notes.ts";
+import { previewSnapshot, type Snapshot } from "./notes.ts";
 
 /** Terminal sanitization is display-only; model context retains the original note body. */
 export function terminalText(text: string): string {
@@ -17,15 +17,31 @@ export function terminalText(text: string): string {
 }
 
 export function summary(snapshot: Snapshot): string {
-  const full = snapshot.notes.filter((note) => note.body !== undefined).length;
+  const injected = snapshot.sources.filter((source) => source.text);
+  const notes = injected.reduce(
+    (count, source) => count + source.notes.length,
+    0,
+  );
+  const full = injected.reduce(
+    (count, source) =>
+      count + source.notes.filter((note) => note.body !== undefined).length,
+    0,
+  );
   const parts = [
     `${full} 全文`,
-    `${snapshot.notes.length - full} 按需`,
-    `${snapshot.folders.length} 文件夹`,
+    `${notes - full} 按需`,
+    `${injected.reduce((count, source) => count + source.folders.length, 0)} 文件夹`,
     `${(snapshot.bytes / 1024).toFixed(1)} KiB`,
   ];
   if (snapshot.issues.length) parts.push(`${snapshot.issues.length} 项提醒`);
+  const skipped = snapshot.sources.filter((source) => source.skipped).length;
+  if (skipped) parts.push(`${skipped} 未注入`);
   return parts.join(" · ");
+}
+
+export function sourceLabel(snapshot: Snapshot): string {
+  const global = snapshot.sources.find((source) => source.kind === "global");
+  return global?.path ?? "未设置全局目录（仅项目 .note）";
 }
 
 export function notify(
@@ -118,13 +134,14 @@ export async function showPreview(
   ctx: ExtensionContext,
   snapshot: Snapshot,
 ): Promise<void> {
+  const text = previewSnapshot(snapshot);
   if (ctx.mode !== "tui") {
-    notify(ctx, snapshot.text);
+    notify(ctx, text);
     return;
   }
   await ctx.ui.custom<void>((tui, theme, keys, done) => {
     const preview = new NotesPreview(
-      snapshot.text,
+      text,
       summary(snapshot),
       theme,
       keys,

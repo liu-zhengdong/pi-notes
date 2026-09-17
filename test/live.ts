@@ -20,7 +20,12 @@ assert.ok(
   typeof provider === "string" && typeof model === "string" && auth[provider],
   "A configured provider/model/credential is required",
 );
-const artifact = join(repo, ".artifacts", `live-${Date.now()}`);
+const keywords = process.argv.includes("--keywords");
+const artifact = join(
+  repo,
+  ".artifacts",
+  `${keywords ? "live-keywords" : "live"}-${Date.now()}`,
+);
 const raw = join(artifact, "raw");
 const work = join(artifact, "work");
 const agentDir = join(work, "agent");
@@ -28,6 +33,17 @@ const vault = join(work, "vault");
 await mkdir(raw, { recursive: true });
 await mkdir(agentDir, { recursive: true, mode: 0o700 });
 await cp(join(repo, "examples/vault"), vault, { recursive: true });
+if (keywords) {
+  await mkdir(join(vault, "关键词"));
+  await writeFile(
+    join(vault, "关键词", "验收.md"),
+    "---\nkeywords: [笔记关键词验收]\ndescription: KEYWORD_LIVE_HINT：此笔记保存当前验收口令，需读取全文确认。\n---\n验收口令：BRAVO-927\n",
+  );
+  await writeFile(
+    join(vault, "关键词", "后续.md"),
+    "---\nkeywords: [BRAVO-927]\ndescription: KEYWORD_FOLLOWUP_HINT：已完成口令验收，无需再次读取。\n---\n",
+  );
+}
 const hashSources = async () =>
   Object.fromEntries(
     await Promise.all(
@@ -76,7 +92,7 @@ await writeFile(
   JSON.stringify({ directory: vault }),
 );
 console.log(
-  `Live check: ${provider}/${model}; ${auth[provider].type} credential from ${original}/auth.json. Limit: 8 requests, 150 seconds.`,
+  `Live check: ${provider}/${model}; ${auth[provider].type} credential from ${original}/auth.json. Limit: 8 requests, 150 seconds per prompt.`,
 );
 const rpc = new Rpc(
   [
@@ -124,15 +140,18 @@ try {
   assert.ok(preview && !preview.includes("ALPHA-731"));
   await writeFile(join(raw, "preview.md"), preview);
   await rpc.prompt(
-    "请从笔记目录的文件夹入口查找 Alpha 的验收口令；先逐层列目录定位文件，再读取原文。仅回答口令与来源路径。",
+    keywords
+      ? "笔记关键词验收。若收到相关笔记提示，请直接按提示中的路径读取正文，不要列目录或搜索；仅回答验收口令与来源路径。"
+      : "请从笔记目录的文件夹入口查找 Alpha 的验收口令；先逐层列目录定位文件，再读取原文。仅回答口令与来源路径。",
     150000,
   );
   const answer = (await rpc.request("get_last_assistant_text")).data.text;
-  assert.ok(answer.includes("ALPHA-731"), answer);
+  const code = keywords ? "BRAVO-927" : "ALPHA-731";
+  assert.ok(answer.includes(code), answer);
   const calls = rpc.events.filter(
     (event) => event.type === "tool_execution_start",
   );
-  assert.ok(calls.some((event) => event.toolName === "ls"));
+  if (!keywords) assert.ok(calls.some((event) => event.toolName === "ls"));
   assert.ok(
     calls.some(
       (event) =>
@@ -141,15 +160,48 @@ try {
   );
   const first = await readFile(join(raw, "request-1.json"), "utf8");
   assert.ok(
-    !first.includes("ALPHA-731"),
+    !first.includes(code),
     "answer must come from a tool, not default injection",
   );
+  if (keywords) {
+    assert.ok(first.includes("KEYWORD_LIVE_HINT"));
+    const beforeFollowup = (await readdir(raw)).filter((name) =>
+      /^request-/.test(name),
+    ).length;
+    for (let n = 1; n <= beforeFollowup; n++)
+      assert.ok(
+        !(await readFile(join(raw, `request-${n}.json`), "utf8")).includes(
+          "KEYWORD_FOLLOWUP_HINT",
+        ),
+        "tool result cannot trigger; final reply waits for next input",
+      );
+    await rpc.prompt("无需再读文件。只回复收到。", 150000);
+    const followup = await readFile(
+      join(raw, `request-${beforeFollowup + 1}.json`),
+      "utf8",
+    );
+    const payload = JSON.parse(followup);
+    const reminderText = (payload.input ?? payload.messages)
+      .filter((message: any) => message.role === "user")
+      .flatMap((message: any) =>
+        typeof message.content === "string"
+          ? [message.content]
+          : message.content.flatMap((part: any) =>
+              typeof part.text === "string" ? [part.text] : [],
+            ),
+      )
+      .filter((text: string) => text.startsWith("# 相关笔记\n"))
+      .join("\n");
+    assert.equal(reminderText.split("KEYWORD_FOLLOWUP_HINT").length - 1, 1);
+    assert.equal(reminderText.split("KEYWORD_LIVE_HINT").length - 1, 1);
+  }
   assert.deepEqual(await hashSources(), before);
   await writeFile(
     join(raw, "result.json"),
     JSON.stringify(
       {
         passed: true,
+        keywords,
         answer,
         tools: calls.map((event) => ({
           name: event.toolName,
