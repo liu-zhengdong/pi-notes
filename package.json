@@ -1,24 +1,37 @@
 {
-  "name": "pi-notes",
+  "name": "@liuser/pi-notes",
   "version": "0.1.0",
   "description": "Bring a Markdown notes folder into Pi with progressive disclosure.",
   "type": "module",
   "keywords": ["pi-package", "obsidian", "notes"],
-  "files": ["src", "examples/vault", "README.md", "DESIGN.md", "DESIGN-Evolution.md", "docs"],
-  "pi": { "extensions": ["./src/index.ts"] },
+  "files": ["dist", "examples/vault", "README.md", "DESIGN.md", "DESIGN-Evolution.md", "docs"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "pi": { "extensions": ["./dist/index.js"] },
+  "repository": { "type": "git", "url": "git+https://github.com/liu-zhengdong/pi-notes.git" },
+  "homepage": "https://github.com/liu-zhengdong/pi-notes#readme",
+  "bugs": { "url": "https://github.com/liu-zhengdong/pi-notes/issues" },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "scripts": {
     "check": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "test:package": "npm run build && node scripts/test-package.mjs",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "test:integration": "node --experimental-strip-types test/integration.ts",
+    "test:keywords": "node --experimental-strip-types test/integration-keywords.ts",
     "test:tui": "node --experimental-strip-types test/tui-smoke.ts",
     "test:live": "node --experimental-strip-types test/live.ts",
-    "bench": "node --experimental-strip-types test/benchmark.ts"
+    "test:live:keywords": "node --experimental-strip-types test/live.ts --keywords",
+    "bench": "node --experimental-strip-types test/benchmark.ts",
+    "bench:keywords": "node --experimental-strip-types test/benchmark-keywords.ts",
+    "bench:store": "node --experimental-strip-types test/benchmark-store.ts"
   },
   "engines": { "node": ">=22.19.0" },
   "dependencies": { "yaml": "2.9.0" },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
+    "@earendil-works/pi-coding-agent": ">=0.85.1",
+    "@earendil-works/pi-tui": ">=0.85.1"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.85.1",

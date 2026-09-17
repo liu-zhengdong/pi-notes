@@ -42,8 +42,14 @@ try {
       ms: Number((performance.now() - begin).toFixed(2)),
       reads: result.reads,
       cacheHits: result.cacheHits,
-      notes: result.notes.length,
-      folders: result.folders.length,
+      notes: result.sources.reduce(
+        (count, source) => count + source.notes.length,
+        0,
+      ),
+      folders: result.sources.reduce(
+        (count, source) => count + source.folders.length,
+        0,
+      ),
       bytes: result.bytes,
     };
   };
