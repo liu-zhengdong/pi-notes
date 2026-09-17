@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
 import {
   chmod,
   mkdir,
@@ -12,6 +13,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -264,8 +266,18 @@ test("watch and indexing errors coexist, recover independently and disappear aft
   const store = f.create();
   const moved = join(f.dir, "temporarily-missing");
   await rename(f.root, moved);
-  store.prepare(initial);
-  await store.publish();
+  // A missing root does not synchronously fail recursive watch on every OS.
+  const failedWatch = t.mock.method(fs, "watch", () => {
+    throw new Error("injected watcher failure");
+  });
+  syncBuiltinESMExports();
+  try {
+    store.prepare(initial);
+    await store.publish();
+  } finally {
+    failedWatch.mock.restore();
+    syncBuiltinESMExports();
+  }
   assert.equal(store.index.notes.size, 0);
   assert.match(store.index.issues.join("\n"), /文件监听不可用/);
   assert.match(store.index.issues.join("\n"), /索引失败/);
