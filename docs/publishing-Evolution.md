@@ -1,5 +1,11 @@
 # npm 发布 Evolution
 
+## 2026-09-20 · 已发布版本跳过 CI dry-run
+
+- 发生：PR CI 在 `npm test` 通过后，`npm publish --dry-run` 因 `0.1.2` 已发布而失败。
+- 分析：dry-run 仍会拒绝覆盖已有版本；该检查只对尚未发布的版本有意义。
+- 改变：版本已在 npm 时跳过 dry-run，仍要求 `release/` 中恰好一份 tarball。
+
 ## 2026-09-17 · 建立发布入口与包级验证
 
 - 发生：三个本地 Pi 插件需要发布到 npm；最初假定 `npm pack --json` 始终返回数组，本机 npm 12.0.2 实测返回以包名为键的对象，导致包验证脚本失败。

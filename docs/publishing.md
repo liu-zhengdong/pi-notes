@@ -2,7 +2,7 @@
 
 ## 发布流程
 
-`main` 与 PR 会在 Node.js 24、26 上执行 CI。发布入口是 `v<package.json 版本>` tag；`release.yml` 校验版本、运行检查、构建 npm 包并在临时目录安装测试，然后通过 npm OIDC 发布，最后生成带 tarball 和 SHA-256 校验文件的 GitHub Release。
+`main` 与 PR 会在 Node.js 24、26 上执行 CI；若当前版本已在 npm 发布，则跳过 `publish --dry-run`。发布入口是 `v<package.json 版本>` tag；`release.yml` 校验版本、运行检查、构建 npm 包并在临时目录安装测试，然后通过 npm OIDC 发布，最后生成带 tarball 和 SHA-256 校验文件的 GitHub Release。
 
 包入口为 `dist/index.js`。npm 包只包含运行文件和使用文档，不包含本地配置、数据库、测试或开发依赖。`pi-context-trace` 的包验证额外启动查看器并读取 HTML、CSS、JavaScript，检查跨源访问被拒绝。
 
