@@ -6,6 +6,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
+  defaultNotesDirectory,
   errorMessage,
   loadConfig,
   saveDirectory,
@@ -28,7 +29,7 @@ import {
 } from "./ui.ts";
 
 const HELP =
-  "/notes — 查看目录与注入清单\n/notes set <目录> — 设置全局笔记目录（支持空格与 ~）\n/notes preview — 预览默认上下文\n/notes clear — 停用默认注入，不删除笔记\n受信任项目内的 .note 目录会自动注入；/notes preview 可确认";
+  "/notes — 查看目录与注入清单\n/notes set <目录> — 设置全局笔记目录（支持空格与 ~）\n/notes preview — 预览默认上下文\n/notes clear — 停用默认注入，不删除笔记\n未配置时使用 agent 目录下的 notes/（若存在）；受信任项目内的 .note 目录会自动注入；/notes preview 可确认";
 
 function globalProblem(snapshot: Snapshot): string | undefined {
   const global = snapshot.sources.find((source) => source.kind === "global");
@@ -349,7 +350,7 @@ export default function notesExtension(pi: ExtensionAPI): void {
           } else {
             const input = await ctx.ui.input(
               "笔记目录（全局；自动注入内容会发送给当前模型）",
-              current?.directory ?? "~/Notes/AI",
+              current?.directory ?? defaultNotesDirectory(configPath),
             );
             if (input === undefined) continue;
             current = await setDirectory(input, ctx);

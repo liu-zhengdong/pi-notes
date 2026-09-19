@@ -27,5 +27,16 @@ jobs:
       - run: npm run check && npm test && npm run test:package
       - name: Rehearse tarball publish
         run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
           tarball="$(find ./release -maxdepth 1 -name '*.tgz')"
-          npm publish "$tarball" --dry-run --access public
+          if [[ -z "$tarball" || "$tarball" == *$'\n'* ]]; then
+            echo "expected exactly one release tarball" >&2
+            exit 1
+          fi
+          if npm view "$name@$version" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "$name@$version already published; skip dry-run"
+          else
+            npm publish "$tarball" --dry-run --access public
+          fi
