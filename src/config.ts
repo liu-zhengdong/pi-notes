@@ -17,6 +17,25 @@ export interface NotesConfig {
   maxContextBytes: number;
 }
 
+/** Unconfigured global notes live next to notes.json: `<agentDir>/notes`. */
+export function defaultNotesDirectory(configPath: string): string {
+  return join(dirname(configPath), "notes");
+}
+
+async function presentDefaultDirectory(
+  configPath: string,
+): Promise<string | null> {
+  const directory = defaultNotesDirectory(configPath);
+  try {
+    const real = await realpath(directory);
+    await readdir(real);
+    return real;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -51,7 +70,10 @@ export async function loadConfig(path: string): Promise<NotesConfig> {
     raw = await readFile(path, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { directory: null, maxContextBytes: DEFAULT_MAX_CONTEXT_BYTES };
+      return {
+        directory: await presentDefaultDirectory(path),
+        maxContextBytes: DEFAULT_MAX_CONTEXT_BYTES,
+      };
     }
     throw error;
   }
@@ -64,14 +86,19 @@ export async function loadConfig(path: string): Promise<NotesConfig> {
       if (key !== "directory" && key !== "maxContextBytes")
         throw new Error(`未知字段：${key}`);
     }
-    const directory = record.directory ?? null;
-    if (
-      directory !== null &&
-      (typeof directory !== "string" ||
-        !isAbsolute(directory) ||
-        /[\x00-\x1f\x7f]/.test(directory))
-    ) {
-      throw new Error("directory 必须是绝对路径或 null");
+    let directory: string | null;
+    if ("directory" in record) {
+      directory = record.directory as string | null;
+      if (
+        directory !== null &&
+        (typeof directory !== "string" ||
+          !isAbsolute(directory) ||
+          /[\x00-\x1f\x7f]/.test(directory))
+      ) {
+        throw new Error("directory 必须是绝对路径或 null");
+      }
+    } else {
+      directory = await presentDefaultDirectory(path);
     }
     const maxContextBytes = record.maxContextBytes ?? DEFAULT_MAX_CONTEXT_BYTES;
     if (

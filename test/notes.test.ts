@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rename,
   rm,
   symlink,
@@ -15,6 +16,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   DEFAULT_MAX_CONTEXT_BYTES,
+  defaultNotesDirectory,
   loadConfig,
   saveDirectory,
   validateDirectory,
@@ -428,6 +430,14 @@ test("unreadable sources are skipped with reasons while other sources still inje
 test("configuration: validation, quoted/spaced paths, atomic writes and invalid-file preservation", async (t) => {
   const { directory } = await fixture(t);
   const path = join(directory, "config", "notes.json");
+  assert.equal((await loadConfig(path)).directory, null);
+  const fallback = defaultNotesDirectory(path);
+  await mkdir(fallback, { recursive: true });
+  const realFallback = await realpath(fallback);
+  assert.equal((await loadConfig(path)).directory, realFallback);
+  await writeFile(path, "{}\n");
+  assert.equal((await loadConfig(path)).directory, realFallback);
+  await saveDirectory(path, null);
   assert.equal((await loadConfig(path)).directory, null);
   const vault = join(directory, "我的 Notes");
   await mkdir(vault);

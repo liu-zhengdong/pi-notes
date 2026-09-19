@@ -14,9 +14,9 @@ pi install npm:@liuser/pi-notes
 
 本地开发安装：在仓库执行 `npm ci --ignore-scripts && npm run build && pi install .`。修改源码后重新构建。
 
-安装后重新启动 Pi，输入 `/notes` 设置笔记目录。
+安装后重新启动 Pi。未配置时，若当前 agent 目录下已有 `notes/`，会自动作为全局来源；也可用 `/notes` 指定其他目录。
 
-配置是**全局的**。自动注入的笔记会随请求发送给当前模型，请选择适合共享的目录。插件不会迁移或修改现有的 USER.md。
+配置跟随当前 agent 目录（`PI_CODING_AGENT_DIR`）。自动注入的笔记会随请求发送给当前模型，请选择适合共享的目录。插件不会迁移或修改现有的 USER.md。
 
 ## 写一篇笔记
 
@@ -104,7 +104,7 @@ my-repo/
 
 ### 配置与异常
 
-默认配置文件是 `~/.pi/agent/notes.json`，遵循 `PI_CODING_AGENT_DIR`。`/notes set` 会保存规范化的绝对目录路径。通常只需用命令配置；手工调整注入预算时，配置格式如下（目录为示例）：
+配置文件是当前 agent 目录下的 `notes.json`，遵循 `PI_CODING_AGENT_DIR`（常见为 `~/.pi/agent/notes.json`）。未写入 `directory` 时，若同级 `notes/` 目录存在则用作全局来源。`/notes set` 会保存规范化的绝对目录路径。通常只需用命令配置；手工调整注入预算时，配置格式如下（目录为示例）：
 
 ```json
 {
